@@ -6,7 +6,6 @@
     <title>健康管理ダッシュボード</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        /* 見た目（デザイン）を整えるCSS */
         body { font-family: sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
         .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         h1, h2 { color: #2c3e50; }
@@ -42,9 +41,9 @@
 
         <div class="form-section">
             <h2>プロフィール設定</h2>
-            <div class="form-group"><label>身長 (cm)</label><input type="number" id="height" value="170"></div>
-            <div class="form-group"><label>目標体重 (kg)</label><input type="number" id="target-weight" value="60"></div>
-            <div class="form-group"><label>年齢</label><input type="number" id="age" value="25"></div>
+            <div class="form-group"><label>身長 (cm)</label><input type="number" id="height"></div>
+            <div class="form-group"><label>目標体重 (kg)</label><input type="number" id="target-weight"></div>
+            <div class="form-group"><label>年齢</label><input type="number" id="age"></div>
             <div class="form-group">
                 <label>性別</label>
                 <select id="gender"><option value="male">男性</option><option value="female">女性</option></select>
@@ -54,11 +53,11 @@
                 <select id="activity">
                     <option value="1.2">ほぼ運動しない</option>
                     <option value="1.375">軽い運動（週1〜2回）</option>
-                    <option value="1.55" selected>中程度の運動（週3〜5回）</option>
+                    <option value="1.55">中程度の運動（週3〜5回）</option>
                     <option value="1.725">激しい運動（週6〜7回）</option>
                 </select>
             </div>
-            <button onclick="updateProfile()">設定を更新</button>
+            <button onclick="updateProfile()">設定を保存</button>
         </div>
 
         <div class="form-section">
@@ -78,21 +77,28 @@
     </div>
 
     <script>
-        // --- データの状態管理 ---
-        // テスト用の初期データを入れてあります
-        let records = [
+        // --- データの状態管理（localStorageを使ってブラウザに保存） ---
+        let records = JSON.parse(localStorage.getItem('myWeightRecords')) || [
             { date: '2026-04-10', weight: 65.5 },
             { date: '2026-04-13', weight: 65.2 },
             { date: '2026-04-16', weight: 64.8 }
         ];
-        let profile = { height: 170, targetWeight: 60, age: 25, gender: 'male', activity: 1.55 };
+        let profile = JSON.parse(localStorage.getItem('myProfile')) || { height: 170, targetWeight: 60, age: 25, gender: 'male', activity: 1.55 };
         let chartInstance = null;
 
         // --- 画面を開いた時の初期処理 ---
-        document.getElementById('record-date').valueAsDate = new Date(); // 今日の日付をセット
-        updateDashboard();
-        renderChart();
-        renderHistory();
+        function init() {
+            document.getElementById('height').value = profile.height;
+            document.getElementById('target-weight').value = profile.targetWeight;
+            document.getElementById('age').value = profile.age;
+            document.getElementById('gender').value = profile.gender;
+            document.getElementById('activity').value = profile.activity;
+            document.getElementById('record-date').valueAsDate = new Date();
+            
+            updateDashboard();
+            renderChart();
+            renderHistory();
+        }
 
         // --- プロフィールの更新処理 ---
         function updateProfile() {
@@ -102,8 +108,10 @@
             profile.gender = document.getElementById('gender').value;
             profile.activity = parseFloat(document.getElementById('activity').value);
             
-            updateDashboard(); // BMI・カロリーを再計算
-            renderChart();     // 目標体重の線を引き直す
+            localStorage.setItem('myProfile', JSON.stringify(profile)); // 保存
+            updateDashboard();
+            renderChart();
+            alert('プロフィールを保存しました！');
         }
 
         // --- 体重の追加処理 ---
@@ -111,5 +119,98 @@
             const date = document.getElementById('record-date').value;
             const weight = parseFloat(document.getElementById('record-weight').value);
             
-            // 入力チェック
-            if(!
+            if(!date || isNaN(weight)) { 
+                alert('日付と体重を正しく入力してください。'); 
+                return; 
+            }
+
+            records.push({ date, weight });
+            records.sort((a, b) => new Date(a.date) - new Date(b.date)); 
+            
+            localStorage.setItem('myWeightRecords', JSON.stringify(records)); // 保存
+            
+            // 記録後に入力欄を空にする
+            document.getElementById('record-weight').value = '';
+            
+            updateDashboard();
+            renderChart();
+            renderHistory();
+        }
+
+        // --- 記録の削除処理 ---
+        function deleteRecord(index) {
+            records.splice(index, 1);
+            localStorage.setItem('myWeightRecords', JSON.stringify(records)); // 保存
+            updateDashboard();
+            renderChart();
+            renderHistory();
+        }
+
+        // --- BMIと消費カロリーの計算・表示 ---
+        function updateDashboard() {
+            if (records.length === 0) {
+                document.getElementById('bmi-display').textContent = '--';
+                document.getElementById('tdee-display').textContent = '--';
+                return;
+            }
+            const latestWeight = records[records.length - 1].weight;
+            
+            const heightM = profile.height / 100;
+            const bmi = (latestWeight / (heightM * heightM)).toFixed(1);
+            document.getElementById('bmi-display').textContent = bmi;
+
+            let bmr = (10 * latestWeight) + (6.25 * profile.height) - (5 * profile.age);
+            bmr += (profile.gender === 'male') ? 5 : -161;
+            
+            const tdee = Math.round(bmr * profile.activity);
+            document.getElementById('tdee-display').textContent = tdee;
+        }
+
+        // --- 履歴リストの描画 ---
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = ''; 
+            
+            [...records].reverse().forEach((r, index) => {
+                const originalIndex = records.length - 1 - index;
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                li.innerHTML = `
+                    <span>${r.date} - <strong>${r.weight} kg</strong></span>
+                    <button class="delete-btn" onclick="deleteRecord(${originalIndex})">削除</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        // --- グラフの描画 (Chart.js) ---
+        function renderChart() {
+            const ctx = document.getElementById('weightChart').getContext('2d');
+            const labels = records.map(r => r.date);
+            const data = records.map(r => r.weight);
+            const targetData = records.map(() => profile.targetWeight);
+
+            if (chartInstance) chartInstance.destroy();
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: '体重 (kg)', data: data, borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true, tension: 0.2 },
+                        { label: '目標体重', data: targetData, borderColor: '#dc3545', borderDash: [5, 5], fill: false, pointRadius: 0 }
+                    ]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: { y: { suggestedMin: profile.targetWeight - 5 } }
+                }
+            });
+        }
+
+        // ページ読み込み時に初期化を実行
+        init();
+    </script>
+</body>
+</html>
