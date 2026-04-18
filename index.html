@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>シンプル体重記録ダッシュボード | ブラウザでサクッと健康管理</title>
+    <title>シンプル体重記録ダッシュボード | アカウント機能付き</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
@@ -18,35 +18,42 @@
         input, select { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
         button { background: #007bff; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; width: 100%; font-size: 16px; font-weight: bold; }
         button:hover { background: #0056b3; }
+        .secondary-btn { background: #6c757d; margin-top: 10px; }
         .chart-container { position: relative; height: 300px; width: 100%; margin-bottom: 20px; }
         .history-list { list-style: none; padding: 0; }
         .history-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
         .delete-btn { background: #dc3545; padding: 5px 10px; width: auto; font-size: 12px; }
+        
+        /* ログイン画面のスタイル */
+        #auth-container { max-width: 400px; margin: 100px auto; text-align: center; }
+        #app-content { display: none; } /* 初期状態では隠しておく */
+        .user-info { text-align: right; margin-bottom: 10px; font-size: 14px; }
+        .logout-link { color: #dc3545; cursor: pointer; text-decoration: underline; margin-left: 10px; }
     </style>
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18096255487">
-</script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-
-  gtag('config', 'AW-18096255487');
-</script>
 </head>
 <body>
-    <div class="container">
+
+    <div id="auth-container" class="container">
+        <h1>健康管理アプリ</h1>
+        <p>データをクラウドに保存するために<br>ログインしてください</p>
+        <div class="form-section">
+            <div class="form-group"><input type="email" id="auth-email" placeholder="メールアドレス"></div>
+            <div class="form-group"><input type="password" id="auth-password" placeholder="パスワード"></div>
+            <button id="btn-login">ログイン</button>
+            <button id="btn-signup" class="secondary-btn">新規登録</button>
+        </div>
+    </div>
+
+    <div id="app-content" class="container">
+        <div class="user-info">
+            <span id="user-display-email"></span>
+            <span class="logout-link" id="btn-logout">ログアウト</span>
+        </div>
         <h1>健康管理ダッシュボード</h1>
 
         <div class="dashboard">
-            <div class="card">
-                <div>現在のBMI</div>
-                <div class="value" id="bmi-display">--</div>
-            </div>
-            <div class="card">
-                <div>1日の消費カロリー(TDEE)</div>
-                <div class="value"><span id="tdee-display">--</span> kcal</div>
-            </div>
+            <div class="card"><div>現在のBMI</div><div class="value" id="bmi-display">--</div></div>
+            <div class="card"><div>1日の消費カロリー</div><div class="value"><span id="tdee-display">--</span> kcal</div></div>
         </div>
 
         <div class="form-section">
@@ -67,215 +74,175 @@
                     <option value="1.725">激しい運動（週6〜7回）</option>
                 </select>
             </div>
-            <button onclick="updateProfile()">設定を保存</button>
+            <button id="btn-update-profile">設定を保存（クラウド同期）</button>
         </div>
 
         <div class="form-section">
             <h2>体重を記録</h2>
             <div class="form-group"><label>日付</label><input type="date" id="record-date"></div>
             <div class="form-group"><label>体重 (kg)</label><input type="number" id="record-weight" step="0.1"></div>
-            <button onclick="addRecord()">記録する</button>
+            <button id="btn-add-record">記録する（クラウド同期）</button>
         </div>
 
-        <h2>体重推移グラフ</h2>
-        <div class="chart-container">
-            <canvas id="weightChart"></canvas>
-        </div>
-<div class="form-section">
-            <h2>💡 健康管理の基礎知識</h2>
-            
-            <h3 style="color: #007bff; font-size: 18px; margin-bottom: 5px;">BMI（体格指数）とは？</h3>
-            <p style="line-height: 1.6; margin-top: 0;">
-                BMI（Body Mass Index）は、体重と身長から算出される肥満度を表す国際的な指標です。<br>
-                日本肥満学会の基準では、<b>「18.5〜25未満」が普通体重、「22」が最も病気になりにくい標準体重</b>とされています。まずはBMI22を目指すのが健康的なダイエットの第一歩です。
-            </p>
-
-            <h3 style="color: #007bff; font-size: 18px; margin-bottom: 5px;">TDEE（1日の総消費カロリー）とは？</h3>
-            <p style="line-height: 1.6; margin-top: 0;">
-                TDEE（Total Daily Energy Expenditure）は、あなたが1日に消費する推定カロリー量です。基礎代謝量に、日常の活動レベル（運動量や仕事のスタイルなど）を掛け合わせて算出します。<br>
-                ダイエットの基本は<b>「摂取カロリー ＜ 消費カロリー(TDEE)」</b>を維持することです。このアプリで算出されたTDEEを目安に、日々の食事量や運動量を調整してみましょう。
-            </p>
-
-            <p style="font-size: 12px; color: #666; margin-top: 15px; border-top: 1px dashed #ccc; padding-top: 10px;">
-                ※本アプリの計算結果は一般的な目安です。医学的な診断や指導に代わるものではありません。
-            </p>
-        </div>
-        ```
+        <div class="chart-container"><canvas id="weightChart"></canvas></div>
         <h2>履歴</h2>
         <ul class="history-list" id="history-list"></ul>
-        <hr style="margin: 40px 0; border: none; border-top: 1px solid #ddd;">
-
-        <div class="form-section" id="about">
-            <h2>運営者情報</h2>
-            <p style="line-height: 1.6;">
-                はじめまして！このアプリの開発者です。<br>
-                日々の早朝のランニングや、一人の時間を楽しむ川沿いの土手でのウォーキングを日課にしています。自分自身の健康管理のモチベーションを保つために、独学で学んでいるプログラミング（PythonやJavaなどのコンピュータサイエンス分野も勉強中です！）の実践を兼ねて、この体重記録アプリを作成しました。<br>
-                同じように運動やダイエットを頑張る方のお役に立てれば嬉しいです。
-            </p>
-        </div>
-
-        <div class="form-section" id="contact">
-            <h2>お問い合わせ</h2>
-            <p style="line-height: 1.6;">
-                当サイトに関するご質問、不具合の報告、その他のお問い合わせは、以下のフォームよりお願いいたします。
-            </p>
-            <a href="https://forms.gle/dhwXHjrHCtEymA5m9" target="_blank" style="display: inline-block; background: #28a745; color: white; padding: 10px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;">お問い合わせフォームを開く</a>
-        </div>
-
-        <div class="form-section" id="privacy">
-            <h2>プライバシーポリシー</h2>
-            <h3 style="font-size: 16px; margin-bottom: 5px;">個人情報の利用目的</h3>
-            <p style="line-height: 1.6; font-size: 14px; margin-top: 0;">
-                当サイトでは、お問い合わせの際にお名前やメールアドレス等の個人情報をご入力いただく場合がございます。取得した個人情報は、お問い合わせに対する回答や必要な情報を電子メールなどでご連絡する場合に利用させていただくものであり、これらの目的以外では利用いたしません。
-            </p>
-            <h3 style="font-size: 16px; margin-bottom: 5px;">広告について</h3>
-            <p style="line-height: 1.6; font-size: 14px; margin-top: 0;">
-                当サイトでは、第三者配信の広告サービス（Googleアドセンス等）を利用する予定です。広告配信事業者は、ユーザーの興味に応じた広告を表示するためにCookie（クッキー）を使用することがあります。
-            </p>
-            <h3 style="font-size: 16px; margin-bottom: 5px;">アクセス解析ツールについて</h3>
-            <p style="line-height: 1.6; font-size: 14px; margin-top: 0;">
-                当サイトでは、Googleによるアクセス解析ツール「Googleアナリティクス」を利用しています。このGoogleアナリティクスはトラフィックデータの収集のためにCookieを使用しています。トラフィックデータは匿名で収集されており、個人を特定するものではありません。
-            </p>
-        </div>
-        ```
     </div>
 
-    <script>
-        // --- データの状態管理（localStorageを使ってブラウザに保存） ---
-        let records = JSON.parse(localStorage.getItem('myWeightRecords')) || [
-            { date: '2026-04-10', weight: 65.5 },
-            { date: '2026-04-13', weight: 65.2 },
-            { date: '2026-04-16', weight: 64.8 }
-        ];
-        let profile = JSON.parse(localStorage.getItem('myProfile')) || { height: 170, targetWeight: 60, age: 25, gender: 'male', activity: 1.55 };
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        // ★★★ ここに自分の Firebase 設定を貼り付けてください ★★★
+        const firebaseConfig = {
+  apiKey: "AIzaSyCHGUpOH0X2qX1Kc7Xa_VePXirA_UZi52w",
+  authDomain: "weightapp-c5e59.firebaseapp.com",
+  databaseURL: "https://weightapp-c5e59-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "weightapp-c5e59",
+  storageBucket: "weightapp-c5e59.firebasestorage.app",
+  messagingSenderId: "468157108154",
+  appId: "1:468157108154:web:e6652383d757386a5ed783",
+  measurementId: "G-13JQESBDQ0"
+};
+        // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let records = [];
+        let profile = { height: 170, targetWeight: 60, age: 25, gender: 'male', activity: 1.55 };
         let chartInstance = null;
 
-        // --- 画面を開いた時の初期処理 ---
-        function init() {
+        // --- 認証状態の監視 ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                document.getElementById('auth-container').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
+                document.getElementById('user-display-email').textContent = user.email;
+                await loadCloudData(user.uid);
+            } else {
+                document.getElementById('auth-container').style.display = 'block';
+                document.getElementById('app-content').style.display = 'none';
+            }
+        });
+
+        // --- クラウドからデータを読み込む ---
+        async function loadCloudData(uid) {
+            const docRef = doc(db, "users", uid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                records = data.records || [];
+                profile = data.profile || profile;
+                setFormValues();
+                updateUI();
+            } else {
+                // 初めてのユーザーの場合
+                setFormValues();
+                updateUI();
+            }
+        }
+
+        // --- クラウドへデータを保存する ---
+        async function syncToCloud() {
+            const user = auth.currentUser;
+            if (user) {
+                await setDoc(doc(db, "users", user.uid), { records, profile });
+            }
+        }
+
+        // --- 各種ボタンイベント ---
+        document.getElementById('btn-signup').onclick = async () => {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            try { await createUserWithEmailAndPassword(auth, email, password); } catch(e) { alert("エラー: " + e.message); }
+        };
+
+        document.getElementById('btn-login').onclick = async () => {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            try { await signInWithEmailAndPassword(auth, email, password); } catch(e) { alert("ログイン失敗: パスワードかメールが違います"); }
+        };
+
+        document.getElementById('btn-logout').onclick = () => signOut(auth);
+
+        document.getElementById('btn-add-record').onclick = async () => {
+            const date = document.getElementById('record-date').value;
+            const weight = parseFloat(document.getElementById('record-weight').value);
+            if(!date || isNaN(weight)) return alert('入力を確認してください');
+            records.push({ date, weight });
+            records.sort((a, b) => new Date(a.date) - new Date(b.date));
+            await syncToCloud();
+            updateUI();
+        };
+
+        document.getElementById('btn-update-profile').onclick = async () => {
+            profile.height = parseFloat(document.getElementById('height').value);
+            profile.targetWeight = parseFloat(document.getElementById('target-weight').value);
+            profile.age = parseFloat(document.getElementById('age').value);
+            profile.gender = document.getElementById('gender').value;
+            profile.activity = parseFloat(document.getElementById('activity').value);
+            await syncToCloud();
+            updateUI();
+            alert('プロフィールを保存しました');
+        };
+
+        window.deleteRecord = async (index) => {
+            records.splice(index, 1);
+            await syncToCloud();
+            updateUI();
+        };
+
+        // --- UI更新・計算ロジック ---
+        function setFormValues() {
             document.getElementById('height').value = profile.height;
             document.getElementById('target-weight').value = profile.targetWeight;
             document.getElementById('age').value = profile.age;
             document.getElementById('gender').value = profile.gender;
             document.getElementById('activity').value = profile.activity;
             document.getElementById('record-date').valueAsDate = new Date();
-            
-            updateDashboard();
-            renderChart();
-            renderHistory();
         }
 
-        // --- プロフィールの更新処理 ---
-        function updateProfile() {
-            profile.height = parseFloat(document.getElementById('height').value);
-            profile.targetWeight = parseFloat(document.getElementById('target-weight').value);
-            profile.age = parseFloat(document.getElementById('age').value);
-            profile.gender = document.getElementById('gender').value;
-            profile.activity = parseFloat(document.getElementById('activity').value);
-            
-            localStorage.setItem('myProfile', JSON.stringify(profile)); // 保存
-            updateDashboard();
-            renderChart();
-            alert('プロフィールを保存しました！');
-        }
-
-        // --- 体重の追加処理 ---
-        function addRecord() {
-            const date = document.getElementById('record-date').value;
-            const weight = parseFloat(document.getElementById('record-weight').value);
-            
-            if(!date || isNaN(weight)) { 
-                alert('日付と体重を正しく入力してください。'); 
-                return; 
+        function updateUI() {
+            if (records.length > 0) {
+                const latest = records[records.length - 1].weight;
+                const hM = profile.height / 100;
+                document.getElementById('bmi-display').textContent = (latest / (hM * hM)).toFixed(1);
+                let bmr = (10 * latest) + (6.25 * profile.height) - (5 * profile.age) + (profile.gender === 'male' ? 5 : -161);
+                document.getElementById('tdee-display').textContent = Math.round(bmr * profile.activity);
             }
-
-            records.push({ date, weight });
-            records.sort((a, b) => new Date(a.date) - new Date(b.date)); 
-            
-            localStorage.setItem('myWeightRecords', JSON.stringify(records)); // 保存
-            
-            // 記録後に入力欄を空にする
-            document.getElementById('record-weight').value = '';
-            
-            updateDashboard();
-            renderChart();
             renderHistory();
-        }
-
-        // --- 記録の削除処理 ---
-        function deleteRecord(index) {
-            records.splice(index, 1);
-            localStorage.setItem('myWeightRecords', JSON.stringify(records)); // 保存
-            updateDashboard();
             renderChart();
-            renderHistory();
         }
 
-        // --- BMIと消費カロリーの計算・表示 ---
-        function updateDashboard() {
-            if (records.length === 0) {
-                document.getElementById('bmi-display').textContent = '--';
-                document.getElementById('tdee-display').textContent = '--';
-                return;
-            }
-            const latestWeight = records[records.length - 1].weight;
-            
-            const heightM = profile.height / 100;
-            const bmi = (latestWeight / (heightM * heightM)).toFixed(1);
-            document.getElementById('bmi-display').textContent = bmi;
-
-            let bmr = (10 * latestWeight) + (6.25 * profile.height) - (5 * profile.age);
-            bmr += (profile.gender === 'male') ? 5 : -161;
-            
-            const tdee = Math.round(bmr * profile.activity);
-            document.getElementById('tdee-display').textContent = tdee;
-        }
-
-        // --- 履歴リストの描画 ---
         function renderHistory() {
             const list = document.getElementById('history-list');
-            list.innerHTML = ''; 
-            
-            [...records].reverse().forEach((r, index) => {
-                const originalIndex = records.length - 1 - index;
+            list.innerHTML = '';
+            [...records].reverse().forEach((r, i) => {
                 const li = document.createElement('li');
                 li.className = 'history-item';
-                li.innerHTML = `
-                    <span>${r.date} - <strong>${r.weight} kg</strong></span>
-                    <button class="delete-btn" onclick="deleteRecord(${originalIndex})">削除</button>
-                `;
+                li.innerHTML = `<span>${r.date} - <strong>${r.weight} kg</strong></span><button class="delete-btn" onclick="deleteRecord(${records.length - 1 - i})">削除</button>`;
                 list.appendChild(li);
             });
         }
 
-        
-        // --- グラフの描画 (Chart.js) ---
         function renderChart() {
             const ctx = document.getElementById('weightChart').getContext('2d');
-            const labels = records.map(r => r.date);
-            const data = records.map(r => r.weight);
-            const targetData = records.map(() => profile.targetWeight);
-
             if (chartInstance) chartInstance.destroy();
-
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: labels,
+                    labels: records.map(r => r.date),
                     datasets: [
-                        { label: '体重 (kg)', data: data, borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true, tension: 0.2 },
-                        { label: '目標体重', data: targetData, borderColor: '#dc3545', borderDash: [5, 5], fill: false, pointRadius: 0 }
+                        { label: '体重 (kg)', data: records.map(r => r.weight), borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true },
+                        { label: '目標', data: records.map(() => profile.targetWeight), borderColor: '#dc3545', borderDash: [5, 5], pointRadius: 0 }
                     ]
                 },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false,
-                    scales: { y: { suggestedMin: profile.targetWeight - 5 } }
-                }
+                options: { responsive: true, maintainAspectRatio: false }
             });
         }
-
-        // ページ読み込み時に初期化を実行
-        init();
     </script>
 </body>
 </html>
