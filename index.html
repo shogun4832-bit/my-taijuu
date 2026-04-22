@@ -276,19 +276,32 @@
         }
 
         // ★書き換え部分：期間の絞り込み機能を追加したグラフ描画関数★
-        function renderChart() {
+       function renderChart() {
             const range = document.getElementById('chart-range').value;
             let displayRecords = records;
 
-            // 'all'以外が選ばれた場合、データをフィルタリングする
             if (range !== 'all') {
                 const daysToSubtract = parseInt(range);
-                const cutoffDate = new Date(); // 今日の日付
-                cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract); // ◯日前の日付を計算
-
-                // cutoffDate（◯日前）より新しいデータだけを残す（抽出する）
+                const cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract);
                 displayRecords = records.filter(r => new Date(r.date) >= cutoffDate);
             }
+
+            // ▼▼ ここから追加：Y軸をズームするための計算 ▼▼
+            let minWeight = 0;
+            let maxWeight = 100;
+            
+            if (displayRecords.length > 0) {
+                // 表示するデータの中から、一番軽い体重と一番重い体重を見つける
+                const weights = displayRecords.map(r => r.weight);
+                const dataMin = Math.min(...weights);
+                const dataMax = Math.max(...weights);
+                
+                // グラフの上下に「1kg分」の余白だけを作る
+                minWeight = Math.floor(dataMin - 1);
+                maxWeight = Math.ceil(dataMax + 1);
+            }
+            // ▲▲ 追加ここまで ▲▲
 
             const ctx = document.getElementById('weightChart').getContext('2d');
             if (chartInstance) chartInstance.destroy();
@@ -301,7 +314,18 @@
                         { label: '目標', data: displayRecords.map(() => profile.targetWeight), borderColor: '#dc3545', borderDash: [5, 5], pointRadius: 0 }
                     ]
                 },
-                options: { responsive: true, maintainAspectRatio: false }
+                // ▼▼ 修正部分：optionsの中にscales（目盛り）の設定を追加 ▼▼
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: minWeight, // 計算した最小値をセット
+                            max: maxWeight  // 計算した最大値をセット
+                        }
+                    }
+                }
+                // ▲▲ 修正ここまで ▲▲
             });
         }
     </script>
