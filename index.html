@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>健康管理ダッシュボード | 目標達成機能付き</title>
+    <title>健康管理ダッシュボード | 期間指定グラフ付き</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: sans-serif; background-color: #f4f7f6; color: #333; margin: 0; padding: 20px; }
@@ -27,7 +27,11 @@
         }
         #save-status.error { background: #dc3545; }
 
+        /* グラフ周辺のデザイン調整 */
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .chart-header select { width: auto; min-width: 150px; }
         .chart-container { position: relative; height: 300px; width: 100%; margin-bottom: 20px; }
+        
         .history-list { list-style: none; padding: 0; }
         .history-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #eee; }
         .delete-btn { background: #dc3545; padding: 5px 10px; width: auto; font-size: 12px; }
@@ -94,7 +98,17 @@
             <button id="btn-add-record">記録する</button>
         </div>
 
+        <div class="chart-header">
+            <h2>体重グラフ</h2>
+            <select id="chart-range">
+                <option value="all">すべての期間</option>
+                <option value="7">過去1週間</option>
+                <option value="30">過去1ヶ月</option>
+                <option value="90">過去3ヶ月</option>
+            </select>
+        </div>
         <div class="chart-container"><canvas id="weightChart"></canvas></div>
+        
         <h2>履歴</h2>
         <ul class="history-list" id="history-list"></ul>
     </div>
@@ -193,6 +207,7 @@
             const weight = parseFloat(document.getElementById('record-weight').value);
             if(!date || isNaN(weight)) return showStatus("入力を確認してください", true);
             records.push({ date, weight });
+            // 日付順に並び替え
             records.sort((a, b) => new Date(a.date) - new Date(b.date));
             await syncToCloud();
             updateUI();
@@ -214,6 +229,9 @@
             updateUI();
         };
 
+        // ★追加部分：ドロップダウンが変更されたらグラフを再描画するイベント★
+        document.getElementById('chart-range').addEventListener('change', renderChart);
+
         function setFormValues() {
             document.getElementById('height').value = profile.height;
             document.getElementById('target-weight').value = profile.targetWeight;
@@ -228,15 +246,14 @@
                 const latest = records[records.length - 1].weight;
                 const hM = profile.height / 100;
                 
-                // ★追加した「目標までの差分」の計算ロジックです★
                 const diff = (latest - profile.targetWeight).toFixed(1);
                 const diffDisplay = document.getElementById('diff-display');
                 if (diff > 0) {
                     diffDisplay.textContent = "あと " + diff + " kg";
-                    diffDisplay.style.color = "#e74c3c"; // 赤色
+                    diffDisplay.style.color = "#e74c3c"; 
                 } else {
                     diffDisplay.textContent = "達成🎉";
-                    diffDisplay.style.color = "#28a745"; // 緑色
+                    diffDisplay.style.color = "#28a745"; 
                 }
 
                 document.getElementById('bmi-display').textContent = (latest / (hM * hM)).toFixed(1);
@@ -258,16 +275,30 @@
             });
         }
 
+        // ★書き換え部分：期間の絞り込み機能を追加したグラフ描画関数★
         function renderChart() {
+            const range = document.getElementById('chart-range').value;
+            let displayRecords = records;
+
+            // 'all'以外が選ばれた場合、データをフィルタリングする
+            if (range !== 'all') {
+                const daysToSubtract = parseInt(range);
+                const cutoffDate = new Date(); // 今日の日付
+                cutoffDate.setDate(cutoffDate.getDate() - daysToSubtract); // ◯日前の日付を計算
+
+                // cutoffDate（◯日前）より新しいデータだけを残す（抽出する）
+                displayRecords = records.filter(r => new Date(r.date) >= cutoffDate);
+            }
+
             const ctx = document.getElementById('weightChart').getContext('2d');
             if (chartInstance) chartInstance.destroy();
             chartInstance = new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: records.map(r => r.date),
+                    labels: displayRecords.map(r => r.date),
                     datasets: [
-                        { label: '体重 (kg)', data: records.map(r => r.weight), borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true, tension: 0.2 },
-                        { label: '目標', data: records.map(() => profile.targetWeight), borderColor: '#dc3545', borderDash: [5, 5], pointRadius: 0 }
+                        { label: '体重 (kg)', data: displayRecords.map(r => r.weight), borderColor: '#007bff', backgroundColor: 'rgba(0,123,255,0.1)', fill: true, tension: 0.2 },
+                        { label: '目標', data: displayRecords.map(() => profile.targetWeight), borderColor: '#dc3545', borderDash: [5, 5], pointRadius: 0 }
                     ]
                 },
                 options: { responsive: true, maintainAspectRatio: false }
